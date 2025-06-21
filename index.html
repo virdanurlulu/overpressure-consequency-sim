@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Explosion Impact Calculator - TNT Equivalent</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"/>
+    <style>
+        body { background: #f6f9fc; }
+        .output-cell { min-width: 70px; }
+        .table-sm th, .table-sm td { font-size: 13px; }
+        .chart-container { width: 100%; max-width: 680px; margin: 0 auto; }
+        .bg-warn { background: #ffe0ef !important; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <h4 class="mb-3">Explosion Impact Calculator <span class="fs-6">(TNT Equivalent, VBA to HTML/JS)</span></h4>
+
+    <!-- INPUT -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-2">
+            <label class="form-label">Chemical Compound:</label>
+            <select class="form-select" id="compound">
+                <option value="TNT">TNT</option>
+                <option value="Ammonium Nitrate">Ammonium Nitrate</option>
+                <option value="LPG">LPG</option>
+                <option value="Hydrogen">Hydrogen</option>
+            </select>
+        </div>
+        <div class="col-md-2 mb-2">
+            <label class="form-label">Volume (m³):</label>
+            <input type="number" class="form-control" id="volume" value="1" min="0" step="any">
+        </div>
+        <div class="col-md-2 mb-2">
+            <label class="form-label">Distance (m):</label>
+            <input type="number" class="form-control" id="distance" value="100" min="0" step="any">
+        </div>
+        <div class="col-md-2 mb-2">
+            <label class="form-label">Safe Po (Crowl, kPa):</label>
+            <input type="number" class="form-control" id="safePoCrowl" value="7" min="1" step="any">
+        </div>
+        <div class="col-md-2 mb-2">
+            <label class="form-label">Safe Po (Alonso, kPa):</label>
+            <input type="number" class="form-control" id="safePoAlonso" value="7" min="1" step="any">
+        </div>
+        <div class="col-md-2 mb-2">
+            <label class="form-label">Safe Po (Sadovski, kPa):</label>
+            <input type="number" class="form-control" id="safePoSadovski" value="7" min="1" step="any">
+        </div>
+    </div>
+
+    <!-- TABLE OUTPUT -->
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle bg-white">
+                <thead class="table-info text-center">
+                <tr>
+                    <th colspan="3">Compound Properties</th>
+                </tr>
+                <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                    <th>Unit</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr><td>Density</td><td id="density" class="output-cell"></td><td>kg/m³</td></tr>
+                <tr><td>Heat of Explosion</td><td id="heatOfExplosion" class="output-cell"></td><td>kJ/kg</td></tr>
+                <tr><td>Sound Velocity</td><td id="soundVelocity" class="output-cell"></td><td>m/s</td></tr>
+                <tr><td>Explosion Efficiency</td><td id="expEfficiency" class="output-cell"></td><td>-</td></tr>
+                <tr><td>E<sub>TNT</sub> (Ref.)</td><td id="etnt" class="output-cell"></td><td>kJ/kg</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle bg-white">
+                <thead class="table-info text-center">
+                <tr>
+                    <th colspan="3">Calculated Parameters</th>
+                </tr>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                    <th>Unit</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr><td>Mass Compound (W)</td><td id="wMass" class="output-cell"></td><td>kg</td></tr>
+                <tr><td>Total Energy (E)</td><td id="eTotal" class="output-cell"></td><td>kJ</td></tr>
+                <tr><td>TNT Equivalent (W<sub>TNT</sub>)</td><td id="wTNT" class="output-cell"></td><td>kg</td></tr>
+                <tr><td>Scaled Distance (Ze)</td><td id="ze" class="output-cell"></td><td>m·kg<sup>-1/3</sup></td></tr>
+                <tr><td>Scaled Overpressure (Ps)</td><td id="ps" class="output-cell"></td><td>-</td></tr>
+                <tr><td>Peak Overpressure (Po) Crowl</td><td id="poCrowl" class="output-cell"></td><td>kPa</td></tr>
+                <tr><td>Peak Overpressure (Po) Alonso</td><td id="poAlonso" class="output-cell"></td><td>kPa</td></tr>
+                <tr><td>Peak Overpressure (Po) Sadovski</td><td id="poSadovski" class="output-cell"></td><td>kPa</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <!-- SOLVER SAFE DISTANCE -->
+            <table class="table table-bordered table-sm bg-white mb-3">
+                <thead class="table-primary text-center"><tr><th colspan="3">Solver: Safe Distance (for Po<sub>safe</sub>)</th></tr></thead>
+                <tbody>
+                <tr>
+                    <th>Crowl</th>
+                    <td id="solverCrowl"></td>
+                    <td>meter</td>
+                </tr>
+                <tr>
+                    <th>Alonso</th>
+                    <td id="solverAlonso"></td>
+                    <td>meter</td>
+                </tr>
+                <tr>
+                    <th>Sadovski</th>
+                    <td id="solverSadovski"></td>
+                    <td>meter</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <!-- PROBIT ANALYSIS -->
+            <table class="table table-bordered table-sm bg-white">
+                <thead class="table-success text-center"><tr><th colspan="5">Probit Comparison Analysis</th></tr></thead>
+                <thead class="text-center">
+                    <tr>
+                        <th>Impact</th>
+                        <th>Crowl<br>Y</th>
+                        <th>Crowl<br>%Aff</th>
+                        <th>Alonso<br>Y</th>
+                        <th>Alonso<br>%Aff</th>
+                    </tr>
+                </thead>
+                <tbody id="probitTable">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-container mt-3 mb-4">
+        <canvas id="chartOverpressure"></canvas>
+    </div>
+    <div class="text-center mb-2 text-secondary" style="font-size:12px;">
+        Source: G. F. Kinney & K. J. Graham, Explosive Shocks in Air, Springer-Verlag, 1985
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// === Compound Data (you may extend) ===
+const compoundData = {
+    "TNT": { density: 1600, heatOfExplosion: 4700, soundVelocity: 330, expEfficiency: 0.35, etnt: 4184 },
+    "Ammonium Nitrate": { density: 1700, heatOfExplosion: 3200, soundVelocity: 320, expEfficiency: 0.27, etnt: 4184 },
+    "LPG": { density: 550, heatOfExplosion: 46000, soundVelocity: 260, expEfficiency: 0.15, etnt: 4184 },
+    "Hydrogen": { density: 70.85, heatOfExplosion: 120000, soundVelocity: 1280, expEfficiency: 0.13, etnt: 4184 }
+};
+// === Table Probit Data ===
+const probitImpacts = [
+    { label: "Death from lung hemorrhage", K1: -77.1, K2: 6.91 },
+    { label: "Eardrum ruptures", K1: -15.6, K2: 1.93 },
+    { label: "Deaths from impact", K1: -46.1, K2: 4.82, useV: true },
+    { label: "Injuries from impact", K1: -39.1, K2: 4.45, useV: true },
+    { label: "Injuries from flying fragments", K1: -27.1, K2: 4.26, useV: true },
+    { label: "Structural damage", K1: -23.8, K2: 2.92 },
+    { label: "Glass breakage", K1: -18.1, K2: 2.79 }
+];
+// === Chart Reference Curve ===
+function getReferenceCurve() {
+    const ze = [], ps = [];
+    for(let i=0; i<250; ++i) {
+        const z = Math.pow(10, Math.log10(0.01) + i*(Math.log10(100)-Math.log10(0.01))/249);
+        const p = (1616 * (1 + Math.pow(z/4.5,2))) /
+            (Math.sqrt(1 + Math.pow(z/0.048,2)) *
+             Math.sqrt(1 + Math.pow(z/0.32,2)) *
+             Math.sqrt(1 + Math.pow(z/1.35,2)));
+        ze.push(z);
+        ps.push(p);
+    }
+    return {ze, ps};
+}
+
+let chartOverpressure = null;
+
+function setColorWarning(element, value) {
+    if (!value || isNaN(value) || Number(value) === 0) {
+        element.classList.add('bg-warn');
+    } else {
+        element.classList.remove('bg-warn');
+    }
+}
+
+function findSafeDistance_Crowl(wTNT, safePo) {
+    let R = 0.1;
+    const Pa = 101.325;
+    while (R < 10000) {
+        const Ze = R / Math.pow(wTNT, 1/3);
+        const Ps = (1616 * (1 + Math.pow(Ze / 4.5, 2))) /
+            (Math.sqrt(1 + Math.pow(Ze / 0.048, 2)) * Math.sqrt(1 + Math.pow(Ze / 0.32, 2)) * Math.sqrt(1 + Math.pow(Ze / 1.35, 2)));
+        const Po = Ps * Pa;
+        if (Po <= safePo) return R;
+        R += 0.5;
+    }
+    return 0;
+}
+function findSafeDistance_Alonso(wTNT, safePo) {
+    let R = 0.1;
+    while (R < 10000) {
+        const Ze = R / Math.pow(wTNT, 1/3);
+        let Po = 0;
+        if (Ze < 10 && Ze > 0) Po = (1130000 * Math.pow(Ze, -2.01)) / 1000;
+        else if (Ze >= 10) Po = (183000 * Math.pow(Ze, -1.16)) / 1000;
+        if (Po <= safePo) return R;
+        R += 0.5;
+    }
+    return 0;
+}
+function findSafeDistance_Sadovski(wTNT, safePo) {
+    let R = 0.1;
+    while (R < 10000) {
+        const Y = Math.pow(wTNT, 1/3) / R;
+        const Po = (0.085 * Y + 0.3 * Math.pow(Y,2) + 0.8 * Math.pow(Y,3)) * 1000;
+        if (Po <= safePo) return R;
+        R += 0.5;
+    }
+    return 0;
+}
+
+// === Probit Analysis ===
+function NormSDist(z) {
+    // Standard normal CDF (approximate, Abramowitz & Stegun 7.1.26)
+    let t = 1 / (1 + 0.2316419 * Math.abs(z));
+    let d = 0.3989423 * Math.exp(-z*z/2);
+    let p = d*t*(0.3193815 + t*(-0.3565638 + t*(1.781478 + t*(-1.821256 + t*1.330274))));
+    p = z > 0 ? 1-p : p;
+    return 1-p;
+}
+
+function updateCalculation() {
+    const compound = document.getElementById('compound').value;
+    const volume = parseFloat(document.getElementById('volume').value);
+    const distance = parseFloat(document.getElementById('distance').value);
+    const safePoCrowl = parseFloat(document.getElementById('safePoCrowl').value);
+    const safePoAlonso = parseFloat(document.getElementById('safePoAlonso').value);
+    const safePoSadovski = parseFloat(document.getElementById('safePoSadovski').value);
+
+    // lookup
+    const data = compoundData[compound] || {};
+    const density = data.density || 0;
+    const heatOfExplosion = data.heatOfExplosion || 0;
+    const soundVelocity = data.soundVelocity || 0;
+    const expEfficiency = data.expEfficiency || 0;
+    const etnt = data.etnt || 4184;
+
+    // Calculations
+    const massCompound = volume && density ? volume * density : 0;
+    const eTotalEnergy = massCompound && heatOfExplosion && expEfficiency ? massCompound * heatOfExplosion * expEfficiency : 0;
+    const wTNT = eTotalEnergy && etnt ? eTotalEnergy / etnt : 0;
+    const ze = (wTNT > 0 && distance > 0) ? distance / Math.pow(wTNT, 1 / 3) : 0;
+
+    let ps = 0;
+    if (ze > 0) {
+        ps = (1616 * (1 + Math.pow(ze / 4.5, 2))) /
+            (Math.sqrt(1 + Math.pow(ze / 0.048, 2)) *
+                Math.sqrt(1 + Math.pow(ze / 0.32, 2)) *
+                Math.sqrt(1 + Math.pow(ze / 1.35, 2)));
+    }
+    const pa = 101.325;
+    const poCrowl = ps * pa;
+
+    let poAlonso = 0;
+    if (ze < 10 && ze > 0) poAlonso = (1130000 * Math.pow(ze, -2.01)) / 1000;
+    else if (ze >= 10) poAlonso = (183000 * Math.pow(ze, -1.16)) / 1000;
+
+    let poSadovski = 0;
+    if (distance > 0 && wTNT > 0) {
+        const y = Math.pow(wTNT, 1 / 3) / distance;
+        poSadovski = (0.085 * y + 0.3 * Math.pow(y, 2) + 0.8 * Math.pow(y, 3)) * 1000;
+    }
+
+    // Output cell update
+    function setOut(id, val, dec=2) {
+        let el = document.getElementById(id);
+        el.textContent = val && !isNaN(val) ? (+val).toFixed(dec) : '';
+        setColorWarning(el, val);
+    }
+    setOut('density', density, 0);
+    setOut('heatOfExplosion', heatOfExplosion, 0);
+    setOut('soundVelocity', soundVelocity, 0);
+    setOut('expEfficiency', expEfficiency, 2);
+    setOut('etnt', etnt, 0);
+
+    setOut('wMass', massCompound);
+    setOut('eTotal', eTotalEnergy);
+    setOut('wTNT', wTNT);
+    setOut('ze', ze);
+    setOut('ps', ps);
+    setOut('poCrowl', poCrowl);
+    setOut('poAlonso', poAlonso);
+    setOut('poSadovski', poSadovski);
+
+    // === Solver section
+    let safeDistCrowl = 0, safeDistAlonso = 0, safeDistSadovski = 0;
+    if (wTNT > 0) {
+        safeDistCrowl = findSafeDistance_Crowl(wTNT, safePoCrowl);
+        safeDistAlonso = findSafeDistance_Alonso(wTNT, safePoAlonso);
+        safeDistSadovski = findSafeDistance_Sadovski(wTNT, safePoSadovski);
+    }
+    setOut('solverCrowl', safeDistCrowl, 1);
+    setOut('solverAlonso', safeDistAlonso, 1);
+    setOut('solverSadovski', safeDistSadovski, 1);
+
+    // === Chart: Reference + User Point
+    const ref = getReferenceCurve();
+    const userPoint = (ze > 0 && ps > 0) ? [{x: ze, y: ps}] : [];
+    if (!chartOverpressure) {
+        const ctx = document.getElementById('chartOverpressure').getContext('2d');
+        chartOverpressure = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Reference Curve (Kinney & Graham 1985)',
+                        data: ref.ze.map((z, i) => ({x: z, y: ref.ps[i]})),
+                        showLine: true,
+                        borderColor: '#177bf7',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: 'User Calculation',
+                        data: userPoint,
+                        showLine: false,
+                        backgroundColor: '#e61b56',
+                        pointRadius: 6,
+                        pointStyle: 'circle',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                aspectRatio: 1.15,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        title: { display: true, text: 'Scaled Distance (Ze)' },
+                        min: 0.01, max: 100
+                    },
+                    y: {
+                        type: 'logarithmic',
+                        title: { display: true, text: 'Scaled Overpressure (Ps)' },
+                        min: 0.01, max: 10000
+                    }
+                }
+            }
+        });
+    } else {
+        chartOverpressure.data.datasets[1].data = userPoint;
+        chartOverpressure.update();
+    }
+
+    // === Probit Analysis ===
+    // Po_Crowl digunakan, juga Alonso, (Sadovski bisa ditambah jika mau)
+    // v_Crowl = c0 * sqrt((7*Po_Crowl)/(6*Pa_Pas))
+    const Pa_Pas = 101325;
+    const c0 = soundVelocity;
+    function probitY(k1, k2, val) { return (val > 0) ? (k1 + k2 * Math.log(val)) : null; }
+    function affected(Y) { return (Y !== null) ? (NormSDist(Y-5)*100) : null; }
+
+    // Rebuild table body
+    let html = '';
+    for (let imp of probitImpacts) {
+        // Crowl
+        let valCrowl = imp.useV ? (c0 ? c0 * Math.sqrt((7 * poCrowl * 1000)/(6*Pa_Pas)) : 0) : poCrowl * 1000;
+        let yCrowl = probitY(imp.K1, imp.K2, valCrowl);
+        let affCrowl = affected(yCrowl);
+
+        // Alonso
+        let valAlonso = imp.useV ? (c0 ? c0 * Math.sqrt((7 * poAlonso * 1000)/(6*Pa_Pas)) : 0) : poAlonso * 1000;
+        let yAlonso = probitY(imp.K1, imp.K2, valAlonso);
+        let affAlonso = affected(yAlonso);
+
+        html += `<tr>
+            <td>${imp.label}</td>
+            <td>${yCrowl!==null?yCrowl.toFixed(2):''}</td>
+            <td>${affCrowl!==null?affCrowl.toFixed(1)+'%':''}</td>
+            <td>${yAlonso!==null?yAlonso.toFixed(2):''}</td>
+            <td>${affAlonso!==null?affAlonso.toFixed(1)+'%':''}</td>
+        </tr>`;
+    }
+    document.getElementById('probitTable').innerHTML = html;
+}
+
+// === Input Triggers ===
+['compound','volume','distance','safePoCrowl','safePoAlonso','safePoSadovski'].forEach(
+    id => document.getElementById(id).addEventListener('input', updateCalculation)
+);
+// Initialize
+window.onload = updateCalculation;
+</script>
+</body>
+</html>
